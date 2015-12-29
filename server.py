@@ -1,24 +1,6 @@
-import socket, datetime
+import socket
+from datetime import datetime
 
-
-def create_socket():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    return s
-
-def listen_sock(s, host, port):
-    s.bind((host, port))
-    s.listen(1)
-    print("Server listening on port", port)
-
-def accept_conn(s):
-    conn, addr = s.accept()
-    print ("Connected to", addr)
-    return conn, addr
-
-def receive(conn_sock):
-    rcvd = conn_sock.recv(1024).decode()
-    if rcvd:
-        return rcvd
 
 def parse_req(req):
     try:
@@ -48,7 +30,7 @@ def make_headers(cont_len="bla"):
     "Content-Type": "text/html; charset=utf-8",
     "Content-Length": str(cont_len),
     "Transfer-Encoding": "(not)chunked ahah, this is copied...",
-    "Date": str(datetime.datetime.now()),
+    "Date": datetime.strftime(datetime.utcnow(), "%a, %m %b %Y %X %Z"),
     "Age": "1562",
     "Connection": "close",
     "X-Cache": "HIT",
@@ -67,34 +49,30 @@ def make_headers(cont_len="bla"):
             Vary: " + hdrs["Vary"] + "\n\r"
     return hdrs_str
 
-def send_file(res, conn, hdrs=headers):
-    if res:
-        data = res.encode()
-        hdrs = make_headers(cont_len=len(data)).encode()
-        data = hdrs + data
-        conn.sendall(data)
-        return 1
-    else:
-        return 0
-
-def close_conn(conn):
-    conn.close()
-
 
 
 def main():
     HOST = ''
-    PORT = 3001
+    PORT = 3002
 
-    sock = create_socket()
-    listen_sock(sock, HOST, PORT)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((HOST, PORT))
+    sock.listen(1)
+    print("Socket listening on port", PORT)
 
     while 1:
         try:
-            conn_socket, address = accept_conn(sock)
-            request = receive(conn_socket)
+            conn_sock, address = sock.accept()
+            print("Connected to", address)
+            request = conn_sock.recv(1024).decode()
             response = parse_req(request)
-            send_file(response, conn_socket)
+            if response:
+                data = response.encode()
+                hdrs = make_headers(cont_len=len(data)).encode()
+                data = hdrs + data
+                conn_sock.sendall(data)
+            else:
+                print("No response")
         except KeyboardInterrupt:
             break
 
